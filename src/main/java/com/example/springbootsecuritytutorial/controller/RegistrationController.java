@@ -1,6 +1,7 @@
 package com.example.springbootsecuritytutorial.controller;
 
 import com.example.springbootsecuritytutorial.entity.User;
+import com.example.springbootsecuritytutorial.entity.VerificationToken;
 import com.example.springbootsecuritytutorial.event.RegistrationCompleteEvent;
 import com.example.springbootsecuritytutorial.model.UserModel;
 import com.example.springbootsecuritytutorial.service.UserService;
@@ -25,15 +26,13 @@ public class RegistrationController {
     @PostMapping("/register")
     public String registerUser(@RequestBody UserModel userModel,
                                final HttpServletRequest request) {
-        try{
+        try {
             User user = userService.registerUser(userModel);
             publisher.publishEvent(new RegistrationCompleteEvent(
                     user,
                     applicationUrl(request)
             ));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             log.error(e.getMessage());
         }
 
@@ -41,11 +40,10 @@ public class RegistrationController {
     }
 
     @GetMapping("/verifyRegistration")
-    public String verifyRegistration(@RequestParam("token") String token){
+    public String verifyRegistration(@RequestParam("token") String token) {
         String result = userService.validateVerificationToken(token);
 
-        if(result.equalsIgnoreCase("valid"))
-        {
+        if (result.equalsIgnoreCase("valid")) {
             return "User Verifies Successfully";
         }
         return "Bad User";
@@ -58,4 +56,29 @@ public class RegistrationController {
                 request.getServerPort() +
                 request.getContextPath();
     }
+
+    @GetMapping("/resendVerifyToken")
+    public String resendVerification(@RequestParam("token") String oldToken,
+                                     HttpServletRequest request) {
+        VerificationToken verificationToken =
+                userService.generateNewVerificationToken(oldToken);
+
+        User user = verificationToken.getUser();
+
+        resendVerificationMail(user, applicationUrl(request), verificationToken);
+        return "Verification Link Sent";
+    }
+
+    private void resendVerificationMail(User user, String applicationUrl, VerificationToken verificationToken) {
+        String url =
+                applicationUrl
+                        + "/verifyRegistration?token="
+                        + verificationToken.getToken();
+
+        log.info("Click the link to verify your account : {}",
+                url);
+
+    }
+
+
 }
