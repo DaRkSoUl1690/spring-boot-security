@@ -8,9 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 import javax.servlet.http.HttpServletRequest;
 
 @RestController
@@ -39,6 +38,17 @@ public class RegistrationController {
         }
 
         return "Success";
+    }
+
+    @GetMapping("/verifyRegistration")
+    public String verifyRegistration(@RequestParam("token") String token){
+        String result = userService.validateVerificationToken(token);
+
+        if(result.equalsIgnoreCase("valid"))
+        {
+            return "User Verifies Successfully";
+        }
+        return "Bad User";
     }
 
     private @NotNull String applicationUrl(@NotNull HttpServletRequest request) {
