@@ -1,23 +1,29 @@
 package com.example.springbootsecuritytutorial.service;
 
+import com.example.springbootsecuritytutorial.entity.PasswordResetToken;
 import com.example.springbootsecuritytutorial.entity.User;
 import com.example.springbootsecuritytutorial.entity.VerificationToken;
 import com.example.springbootsecuritytutorial.model.UserModel;
+import com.example.springbootsecuritytutorial.repository.PasswordResetTokenRepository;
 import com.example.springbootsecuritytutorial.repository.UserRepository;
 import com.example.springbootsecuritytutorial.repository.VerificationTokenRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Calendar;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
     @Autowired
     private VerificationTokenRepository verificationTokenRepository;
     @Autowired
@@ -69,13 +75,71 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public VerificationToken generateNewVerificationToken(String oldToken) {
-       VerificationToken verificationToken
-               = verificationTokenRepository.findByToken(oldToken);
+        VerificationToken verificationToken
+                = verificationTokenRepository.findByToken(oldToken);
 
-       verificationToken.setToken(UUID.randomUUID().toString());
-       verificationTokenRepository.save(verificationToken);
+        verificationToken.setToken(UUID.randomUUID().toString());
+        verificationTokenRepository.save(verificationToken);
 
 
         return verificationToken;
     }
+
+    @Override
+    public User findUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+
+    }
+
+    @Override
+    public void createPasswordResetTokenForUser(User user, String token) {
+        PasswordResetToken passwordResetToken =
+                new PasswordResetToken(user, token);
+
+        passwordResetTokenRepository.save(passwordResetToken);
+    }
+
+    @Override
+    public String validatePasswordResetToken(String token) {
+        PasswordResetToken passwordResetToken
+                = passwordResetTokenRepository.findByToken(token);
+
+        if (passwordResetToken == null) {
+            return "invalid";
+        }
+
+        User user = passwordResetToken.getUser();
+        Calendar cal = Calendar.getInstance();
+
+        if ((passwordResetToken.getExpirationDate().getTime() -
+                cal.getTime().getTime() <= 0)) {
+            passwordResetTokenRepository.delete(passwordResetToken);
+            return "expired";
+        }
+
+        user.setEnabled(true);
+        userRepository.save(user);
+        return "valid";
+    }
+
+    @Override
+    public Optional<User> getUserByPasswordResetToken(String token) {
+        return Optional.ofNullable(passwordResetTokenRepository
+                .findByToken(token).getUser());
+    }
+
+    @Override
+    public void changePassword(User user, String newPassword) {
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    public boolean checkIfValidOldPassword(User user, String oldPassword) {
+        log.info("user password : {}", user.getPassword());
+        log.info("password encoder boolean : {}" , passwordEncoder.matches(oldPassword, user.getPassword()));
+        return passwordEncoder.matches(oldPassword, user.getPassword());
+    }
+
+
 }
